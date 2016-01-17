@@ -17,6 +17,7 @@
 
 #include <ESP8266WiFi.h>
 
+// This is not yet fully implemented, please ignore
 //#define DETECT_INTERNET
 #define DETECT_NO_INTERNET
 
