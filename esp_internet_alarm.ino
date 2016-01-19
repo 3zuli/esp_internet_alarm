@@ -17,9 +17,10 @@
 
 #include <ESP8266WiFi.h>
 
-// This is not yet fully implemented, please ignore
-//#define DETECT_INTERNET
-#define DETECT_NO_INTERNET
+// Select mode of operation by uncommenting one of the following lines
+// Default: DETECT_NO_INTERNET
+//#define DETECT_INTERNET    // Turn on the light when there IS internet connnection
+#define DETECT_NO_INTERNET // Turn on the light when there is NO internet connection
 
 // Your WiFi network credentials
 const char* ssid     = "Your SSID";
@@ -32,19 +33,25 @@ const char* password = "Your Password";
 const char* host = "httpbin.org";
 
 // Global variable to track our connection status
-bool hasInternet = true; 
+bool hasInternet = false; 
 
 // The ESP pin on which the strobe light is connected
 const int strobePin = 02;
+
+// Set to true to enable debug printouts
+const bool debug = false;
 
 
 void led(int pin){
 #if defined(DETECT_INTERNET)
     digitalWrite(pin,hasInternet);
-#elifdef DETECT_NO_INTERNET
-    digitalWrite(pin,~hasInternet);
+    if(debug){Serial.print("Setting LED to "); Serial.println(hasInternet);}
+#elif defined(DETECT_NO_INTERNET)
+    digitalWrite(pin,!hasInternet);
+    if(debug){Serial.print("Setting LED to "); Serial.println(!hasInternet);}
 #else
-    digitalWrite(pin,~hasInternet);
+    digitalWrite(pin,!hasInternet);
+    if(debug){Serial.print("Setting LED to "); Serial.println(!hasInternet);}
 #endif
 }
 //// led(strobePin);
@@ -59,7 +66,7 @@ int connectWifi(int retryDelay=500){
   
   //Assume we aren't connected and turn on the strobe
   hasInternet=false; 
-  digitalWrite(strobePin,HIGH);
+  led(strobePin);
   
   //Start connecting, the connection process is done by the ESP in the background
   WiFi.begin(ssid, password); 
@@ -96,7 +103,8 @@ int connectWifi(int retryDelay=500){
   }
   
   // Here we are connected, we can turn off the strobe & print our IP address
-  digitalWrite(strobePin,LOW);
+  hasInternet = true;
+  led(strobePin);
   Serial.println("WiFi connected");  
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -105,7 +113,18 @@ int connectWifi(int retryDelay=500){
 void setup() {
   Serial.begin(115200);
   pinMode(strobePin,OUTPUT); // Set strobe pin as OUTPUT
+  led(strobePin);
   delay(10);
+  
+  // Print out current configuration
+  Serial.println();
+#if defined(DETECT_INTERNET)
+  Serial.println("Operation mode: DETECT_INTERNET");
+#elif defined(DETECT_NO_INTERNET)
+  Serial.println("Operation mode: DETECT_NO_INTERNET");
+#else
+  Serial.println("Operation mode: DETECT_NO_INTERNET");
+#endif
 
   // We start by connecting to a WiFi network
   connectWifi(500);
@@ -115,9 +134,9 @@ void setup() {
 void loop() {
   // Loop/check connection every 5 seconds
   delay(5000);
-  
+  if(debug){Serial.print("hasInternet "); Serial.println(hasInternet);}
   // Turn on/off the strobe according to current connection state
-  digitalWrite(strobePin,!hasInternet);
+  //led(strobePin);
   
   wl_status_t wifiStatus = WiFi.status();
   if(wifiStatus != WL_CONNECTED){
@@ -140,14 +159,14 @@ void loop() {
     // Set hasInternet to false, turn on the strobe, 
     // exit the loop() function and wait for the next round
     hasInternet=false;
-    digitalWrite(strobePin,HIGH);
+    led(strobePin);
     return;
   }
   // Otherwise we are now connected to httpbin.org, 
   // which means our internet is at least somewhat working :)
   // Set hasInternet to true, turn off the strobe, proceed to the GET
   hasInternet=true;
-  digitalWrite(strobePin,LOW);
+  led(strobePin);
   
   // We now create a URI for the request
   String url = "/get";
